@@ -12,47 +12,60 @@
     this file, You can obtain one at https://www.gnu.org/licenses/lgpl-3.0.en.html
 */
 
-#include <algorithm>
-
 #include "tdatasource.h"
 
-double TDataSource::data(int row, int col)
+int TDataSource::min(int col) throw(out_of_range)
 {
-    return internalData((this->*mIndexFunc)(row), col);
+    if(!columnInRange(col)) throw out_of_range("Column No. out of range");
+    if(!minByColIdx.count(col))
+        calcColumnMinMax(col);  // Calculate on first run only
+    return minByColIdx[col];
 }
 
-double TDataSource::data(int row, string colName)
+int TDataSource::max(int col) throw(out_of_range)
 {
-    return internalData((this->*mIndexFunc)(row), colName);
+    if(!columnInRange(col)) throw out_of_range("Column No. out of range");
+    if(!maxByColIdx.count(col))
+        calcColumnMinMax(col);  // Calculate on first run only
+    return maxByColIdx[col];
 }
 
-double TDataSource::inData(int row, int col)
+int TDataSource::min(string colName) throw(invalid_argument)
 {
-    int colIndex = (!mInIndexes.size()) ? col : mInIndexes[col];
-    return data(row, colIndex);
-}
-
-double TDataSource::outData(int row, int col)
-{
-    int colIndex = (!mOutIndexes.size()) ? col : mOutIndexes[col];
-    return data(row, colIndex);
-}
-
-void TDataSource::shuffle(bool mix)
-{
-    if(mix) {
-        if(!mShuffled) {
-            mShuffled = true;
-            mIndexFunc = &TDataSource::shuffledIndex;
-            mIndexArray = vector<int>(rowCount());
-            // sequentally populate vector
-            iota(mIndexArray.begin(), mIndexArray.end(), 0);
-            // shuffle vector
-            random_shuffle(begin(mIndexArray), end(mIndexArray));
-        }
-        // already shuffled - do nothing
-    } else {
-        mShuffled = true;
-        mIndexFunc = &TDataSource::shuffledIndex;
+    int col = columnIndex(colName);
+    if(!columnInRange(col)) throw invalid_argument("Such column does not exists!");
+    if(!minByColName.count(colName))
+    {
+        if(!minByColIdx.count(col))
+            calcColumnMinMax(col);  // Calculate on first run only
+        minByColName[colName] = minByColIdx[col];
     }
+    return minByColName[colName];
+}
+
+int TDataSource::max(string colName) throw(invalid_argument)
+{
+    int col = columnIndex(colName);
+    if(!columnInRange(col)) throw invalid_argument("Such column does not exists!");
+    if(!maxByColName.count(colName))
+    {
+        if(!maxByColIdx.count(col))
+            calcColumnMinMax(col);  // Calculate on first run only
+        maxByColName[colName] = maxByColIdx[col];
+    }
+    return maxByColName[colName];
+}
+
+void TDataSource::calcColumnMinMax(int col)
+{
+    if(rowCount() <= 0) return;
+
+    double min = data(0, col), max = data(0, col);
+    for(int i = 1; i < rowCount(); i++)
+    {
+        if(min > data(i, col)) min = data(i, col);
+        if(max < data(i, col)) max = data(i, col);
+    }
+    minByColIdx[col] = min;
+    maxByColIdx[col] = max;
 }

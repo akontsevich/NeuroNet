@@ -24,10 +24,10 @@ TNeuroNet::TNeuroNet(const vector<int> &topology) throw(invalid_argument)
     for(auto element : topology) {
         if(element <=0) throw invalid_argument("Wrong neural network topology!");
     }
-    construct(topology);
+    Construct(topology);
 }
 
-void TNeuroNet::construct(const vector<int> &topology)
+void TNeuroNet::Construct(const vector<int> &topology)
 {
     neuronCount = topology;
     innerNeurons = vector<int>(topology.begin() + 1, topology.end() - 2);
@@ -41,7 +41,7 @@ void TNeuroNet::construct(const vector<int> &topology)
     // выделение памяти под вспомогательную переменную
     sum_e_by_w = new double *[innerNeurons.size()+2];
     // Выходы нейронов и ошибки обучения (0 - вход, innerNeurons.size()+1 - выход)
-    for(int k=0; k < innerNeurons.size() + 2; k++)
+    for(size_t k = 0; k < innerNeurons.size() + 2; k++)
     {
         Y[k] = new double [neuronCount[k]];
         inSum[k] = new double [neuronCount[k]];
@@ -56,7 +56,7 @@ void TNeuroNet::construct(const vector<int> &topology)
     w = new double **[innerNeurons.size()+1];
     w0 = new double *[innerNeurons.size()+1];
     e_by_x = new double **[innerNeurons.size()+1];
-    for(int k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
+    for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
     {
         w[k-1] = new double *[neuronCount[k]];
         w0[k-1] = new double [neuronCount[k]];
@@ -97,13 +97,13 @@ TNeuroNet::TNeuroNet(const string &fileName) throw(invalid_argument, runtime_err
         fread(&actFuncType, sizeof(ActivationFunctionType), 1, f);
 
         // Вызов конструктора
-        construct(layers);
+        Construct(layers);
 
         // Чтение значений весовых коэффициентов и смещений
-        for(int k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
-            for(int i=0; i < neuronCount[k]; i++) // Цикл по нейронам текущего слоя
+        for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
+            for(int i = 0; i < neuronCount[k]; i++) // Цикл по нейронам текущего слоя
             {
-                for(int j = 0; j< neuronCount[k-1]; j++) // - по нейронам предыдущего слоя
+                for(int j = 0; j < neuronCount[k-1]; j++) // - по нейронам предыдущего слоя
                     // Чтение весов
                     fread(&w[k-1][i][j], sizeof(double), 1, f);
                 // Чтение смещений (порогов)
@@ -131,7 +131,7 @@ void TNeuroNet::Save(const string &fileName)
     fwrite(&actFuncType, sizeof(ActivationFunctionType), 1, f);
 
     // Запись значений весовых коэффициентов и смещений
-    for(int k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
+    for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
         for(int i = 0; i < neuronCount[k]; i++) // Цикл по нейронам текущего слоя
         {
             for(int j = 0; j < neuronCount[k-1]; j++) // - по нейронам предыдущего слоя
@@ -149,7 +149,8 @@ TNeuroNet::~TNeuroNet()
     if(!scgMemAllocated)
     {// то очистить выделенную для этого метода память
         scgMemAllocated = true;
-        SCGLearning(nullptr, nullptr, 0);
+        TLearnPattern empty;
+        SCGLearning(empty);
     }
     // Если была использована функция обучения GA
     if(!firstGACycle)
@@ -159,7 +160,7 @@ TNeuroNet::~TNeuroNet()
     }
 
     // Удаление массива значений синаптических весов нейронов
-    for(int k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
+    for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
     {
         for(int i = 0; i < neuronCount[k]; i++) // Цикл по нейронам текущего слоя
         {
@@ -176,7 +177,7 @@ TNeuroNet::~TNeuroNet()
     delete[] e_by_x;
 
     // Удаление массива выходов узлов нейронов
-    for(int i = 0; i < innerNeurons.size() + 2; i++)
+    for(size_t i = 0; i < innerNeurons.size() + 2; i++)
     {
         delete[] Y[i];
         delete[] inSum[i];
@@ -230,7 +231,7 @@ void TNeuroNet::Init(double ExtMin, double ExtMax)
 void TNeuroNet::Init()
 {
     // Инициализация массива значений синаптических весов нейронов
-    for(int k=1; k<=innerNeurons.size()+1; k++) // Цикл по слоям
+    for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
     {
         // Тестовый код
         //      if(k ==innerNeurons.size()+1 ) { WMin= -0.5; WMax = 0.5; }
@@ -246,41 +247,41 @@ void TNeuroNet::Init()
     netInitialized = true;
 }
 
-void TNeuroNet::Update(double *X)
+void TNeuroNet::Update(TLearnPattern::TPatternRow X)
 {
     // Расчет выходных сигналов первого (входного) слоя
     for(int i = 0; i < neuronCount[0]; i++)
         Y[0][i] = X[i];
 
-    for(int k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
+    for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
         for(int i = 0; i < neuronCount[k]; i++) // Цикл по нейронам текущего слоя
         {
             double S = 0.0;
             for(int j = 0; j < neuronCount[k-1]; j++) // - по нейронам предыдущего слоя
                 S += w[k-1][i][j]*Y[k-1][j];
             inSum[k][i] = S + w0[k-1][i]; // Вычисление взвешенной суммы входов
-            Y[k][i] =  (this->*fAct)(inSum[k][i]);    // Вычисление выхода нейрона
+            Y[k][i] = (this->*fAct)(inSum[k][i]);    // Вычисление выхода нейрона
             sum_e_by_w[k][i] = 0.0;
         }
 }
 
 // Функция обучения обратного распространения ошибки
-double TNeuroNet::StdLearning(double **X, double **D, int PattCount)
+double TNeuroNet::StdLearning(TLearnPattern &pattern)
 {
     register double SSE = 0.0, deviation, error;
 
-    for(int m = 0; m < PattCount; m++)
+    for(int m = 0; m < pattern.rowCount(); m++)
     {
         int index = m;
         // Расчет выхода сети (Forward Propagation)
-        Update(X[index]);
+        Update(pattern[index]);
 
         // ------------------- Обучение сети ----------------------------------
         // Настройка весовых коэффициентов нейронов выходного слоя
         for(int i=0; i<neuronCount[innerNeurons.size()+1]; i++)
         {
             int k = innerNeurons.size()+1;
-            deviation = D[index][i] - Y[k][i];
+            deviation = pattern.out(index, i) - Y[k][i];
 
             // Предотвращение переобучения
             if (fabs(deviation) <= maxDelta)
@@ -288,7 +289,7 @@ double TNeuroNet::StdLearning(double **X, double **D, int PattCount)
 
             SSE += deviation*deviation; // Вычисление суммарной квадратичной
             // ошибки (Sum Squared Error) обучения
-            error = deviation * df(k, i);
+            error = deviation * (this->*df)(k, i);
             delta[k][i] = error;
             for(int j=0; j<neuronCount[innerNeurons.size()]; j++)
             {
@@ -303,7 +304,7 @@ double TNeuroNet::StdLearning(double **X, double **D, int PattCount)
         for(int k=innerNeurons.size(); k>0; k--)
             for(int i=0; i<neuronCount[k]; i++)
             {
-                error = sum_e_by_w[k][i]*df(k, i);
+                error = sum_e_by_w[k][i] * (this->*df)(k, i);
                 delta[k][i] = error;
 
                 for(int j=0; j<neuronCount[k-1]; j++)
@@ -319,23 +320,21 @@ double TNeuroNet::StdLearning(double **X, double **D, int PattCount)
     return(SSE);
 }
 
-// Тестирование сети
-double TNeuroNet::Test(double **X, double **D, int PattCount,
-                       double *MaxError)
+double TNeuroNet::Test(TLearnPattern &pattern, double *MaxError)
 {
     double SSE = 0.0;
     bool CalcMaxError = MaxError != nullptr;
     if(CalcMaxError)
         *MaxError = 0.0;
-    for(int m=0; m<PattCount; m++)
+    for(int m = 0; m < pattern.testCount(); m++)
     {
-        Update(X[m]);
+        Update(pattern.TestIn(m));
         // Вычисление суммарной квадратичной ошибки (Sum Squared Error)
         int k = innerNeurons.size()+1;
         double Error = 0.0;
-        for(int i=0; i<neuronCount[k]; i++)
+        for(int i = 0; i < neuronCount[k]; i++)
         {
-            double multiplier = Y[k][i] - D[m][i];
+            double multiplier = Y[k][i] - pattern.testOut(m, i);
             Error += multiplier * multiplier;
             SSE += Error;
         }
@@ -347,12 +346,38 @@ double TNeuroNet::Test(double **X, double **D, int PattCount,
     return(SSE);
 }
 
-void TNeuroNet::Print(char *filename, int Precission)
+double TNeuroNet::PatternSSE(TLearnPattern &pattern, double *MaxError)
+{
+    double SSE = 0.0;
+    bool CalcMaxError = MaxError != nullptr;
+    if(CalcMaxError)
+        *MaxError = 0.0;
+    for(int m = 0; m < pattern.rowCount(); m++)
+    {
+        Update(pattern[m]);
+        // Вычисление суммарной квадратичной ошибки (Sum Squared Error)
+        int k = innerNeurons.size()+1;
+        double Error = 0.0;
+        for(int i = 0; i < neuronCount[k]; i++)
+        {
+            double multiplier = Y[k][i] - pattern.out(m, i);
+            Error += multiplier * multiplier;
+            SSE += Error;
+        }
+        // Поиск максимального отклонения
+        if(CalcMaxError)
+            if(fabs(Error) > *MaxError)
+                *MaxError = Error;
+    }
+    return(SSE);
+}
+
+void TNeuroNet::Print(char *filename, int /*Precission*/)
 {
     FILE *f = fopen(filename, "w");
     double MinW = 0.0, MaxW = 0.0,
             MinW0 = 0.0, MaxW0 = 0.0;
-    for(int k=1; k<innerNeurons.size()+1; k++) // Цикл по слоям
+    for(size_t k = 1; k < innerNeurons.size()+1; k++) // Цикл по слоям
     {
         // Печать выходов нейронов
         for(int i=0; i<neuronCount[k-1]; i++)
@@ -400,7 +425,7 @@ static int vector_size;
 static double* *gradient;
 
 // Функция обучения методом сопряженных градиентов
-double TNeuroNet::SCGLearning(TDataSource *data)
+double TNeuroNet::SCGLearning(TLearnPattern &pattern)
 {
     static int cc; // (Cycle Count)
     static bool restart_alg = false, stop_alg = false, success;
@@ -438,13 +463,13 @@ double TNeuroNet::SCGLearning(TDataSource *data)
 
             int vector_index = 0;
             // Сохранить адреса весов в векторе весов
-            for(int k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
+            for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
                 for(int i = 0; i < neuronCount[k]; i++) // - по нейронам текущего слоя
                 {
                     gradient[vector_index] = &delta[k][i];
                     weights[vector_index++] = &w0[k-1][i];
                 }
-            for(int k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
+            for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
                 for(int i = 0; i < neuronCount[k]; i++) // - по нейронам текущего слоя
                     for(int j = 0; j < neuronCount[k-1]; j++) // - по нейронам предыдущего
                     {
@@ -483,7 +508,7 @@ double TNeuroNet::SCGLearning(TDataSource *data)
     // Инициализация векторов p и r
     if(start_alg)
     {
-        SSE = CalculateGradient(X, D, PattCount); // Расчет вектора градиента
+        SSE = CalculateGradient(pattern); // Расчет вектора градиента
         // Копировать градиент в p и r
         for(i=0; i<vector_size; i++)
         {
@@ -521,7 +546,7 @@ double TNeuroNet::SCGLearning(TDataSource *data)
         for(i=0; i<vector_size; i++)
             *weights[i] += sigma*p[i];
         // вычислить новый градиент
-        SSE = CalculateGradient(X, D, PattCount);
+        SSE = CalculateGradient(pattern);
         // вычислить размер шага
         for(i=0; i<vector_size; i++)
             step[i] = (*gradient[i] - old_gradient[i])/sigma;
@@ -547,7 +572,7 @@ double TNeuroNet::SCGLearning(TDataSource *data)
 
     for(i=0; i<vector_size; i++)
         *weights[i] = old_weights[i] + alpha*p[i];
-    SSE = CalculateGradient(X, D, PattCount);
+    SSE = CalculateGradient(pattern);
     grand_delta = 2.0*scg_delta*(old_error - SSE)/(mu*mu);
     if(grand_delta >= 0) // удачное уменьшение ошибки может быть выполнено
     {
@@ -616,11 +641,10 @@ double TNeuroNet::SCGLearning(TDataSource *data)
 
 void TNeuroNet::ClearDeltas()    // Обнуление ошибки обучения
 {
-    int k, i, j;
-    for(k=1; k<=innerNeurons.size()+1; k++) // Цикл по слоям
-        for(i=0; i<neuronCount[k]; i++) // Цикл по нейронам текущего слоя
+    for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
+        for(int i = 0; i < neuronCount[k]; i++) // Цикл по нейронам текущего слоя
         {
-            for(j=0; j<neuronCount[k-1]; j++) // - по нейронам предыдущего слоя
+            for(int j = 0; j < neuronCount[k-1]; j++) // - по нейронам предыдущего слоя
                 e_by_x[k-1][i][j] = 0.0;
             delta[k][i] =  0.0;
         }
@@ -641,32 +665,32 @@ double TNeuroNet::square_of_norm(double *x, int array_size)
     return(product_of_xt_by_y(x, x, array_size));
 }
 
-double TNeuroNet::CalculateGradient(double **X, double **D, int PattCount)
+double TNeuroNet::CalculateGradient(TLearnPattern &pattern)
 {
     double SSE = 0.0;
     ClearDeltas();  // Очистка параметра, описывающего ошибку сети, для
                     // последующего запуска функции обратного распространения
 
-    for(int m=0; m<PattCount; m++)
+    for(int m = 0; m < pattern.rowCount(); m++)
     {
         int index = m;
         // Расчет выхода сети (Forward Propagation)
-        Update(X[index]);
-        SSE += PropagateNetBatchBackward(X[index], D[index]);
+        Update(pattern[index]);
+        SSE += PropagateNetBatchBackward(pattern.Out(index));
     }
-    for(int i=0; i<vector_size; i++)
+    for(int i = 0; i < vector_size; i++)
         *gradient[i] = - 2.0* *gradient[i];
 
     return(SSE);
 }
 
-double TNeuroNet::PropagateNetBatchBackward(double *X, double *D)
+double TNeuroNet::PropagateNetBatchBackward(TLearnPattern::TPatternRow D)
 {
     register double SSE = 0.0, deviation, error;
 
     // ------------ Расчет параметра, описывающего ошибку сети ---------------
     // Расчет параметра для нейронов выходного слоя
-    for(int i=0; i<neuronCount[innerNeurons.size()+1]; i++)
+    for(int i = 0; i < neuronCount[innerNeurons.size() + 1]; i++)
     {
         int k = innerNeurons.size() + 1;
         deviation = D[i] - Y[k][i];
@@ -679,7 +703,7 @@ double TNeuroNet::PropagateNetBatchBackward(double *X, double *D)
         // ошибки (Sum Squared Error) обучения
         error = deviation * (this->*df)(k, i);
         delta[k][i] += error;
-        for(int j=0; j<neuronCount[innerNeurons.size()]; j++)
+        for(int j = 0; j < neuronCount[innerNeurons.size()]; j++)
         {
             sum_e_by_w[k-1][j] += error*w[k-1][i][j];
             e_by_x[k-1][i][j]  += error*Y[k-1][j];
@@ -704,7 +728,7 @@ int TNeuroNet::CalculateVectorSize()
 {
     int vector_size = 0;
 
-    for(int k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
+    for(size_t k = 1; k <= innerNeurons.size() + 1; k++) // Цикл по слоям
         vector_size += neuronCount[k]*(neuronCount[k-1] + 1);
 
     return(vector_size);
@@ -720,13 +744,13 @@ double TNeuroNet::GetOutput(int i)
     return(out[i]);
 }
 
-double TNeuroNet::GALearning(double **X, double **D, int PattCount)
+double TNeuroNet::GALearning(TLearnPattern &pattern)
 {
     static int iterNo;
     if(firstGACycle)
     {
         firstGACycle = false;
-        ganl = new TGANeuroLearn(this, X, D, PattCount);
+        ganl = new TGANeuroLearn(this, pattern);
         iterNo = 1;
     }
     double Fitness = ganl->OptimizationCycle(iterNo++);
@@ -735,57 +759,36 @@ double TNeuroNet::GALearning(double **X, double **D, int PattCount)
     return(SSE);
 }
 
-TGANeuroLearn::TGANeuroLearn(TNeuroNet *ExtNet, double **XExt, double **DExt,
-                             int PattCountExt) :
-    TGeneticAlgorithm(ExtNet->CalculateVectorSize())
+TGANeuroLearn::TGANeuroLearn(TNeuroNet *net, TLearnPattern &pattern)
+    : TGeneticAlgorithm(net->CalculateVectorSize())
+    , mNet(net)
+    , mPattern(pattern)
 {
-    Net = ExtNet;
-    X = XExt;
-    D = DExt;
-    PattCount = PattCountExt;
-
-    CalcVectorSize();
-
-    // Создать популяцию особей
-    for(int i=0; i<POPULATION_SIZE; i++)
-    {
-        Net->Init();
-        Parents[i]->fillVectorData(vector);
-        CalcCromosomeFitness(Parents[i]);
-
-        Net->Init();
-        Offsprings[i]->fillVectorData(vector);
-        CalcCromosomeFitness(Offsprings[i]);
-
-        AllPopulation[i] = Parents[i];
-        AllPopulation[i+POPULATION_SIZE] = Offsprings[i];
-    }
-    // Отбор лучших особей в родительскую популяцию
-    AvgFitness = NewGeneration1();
 }
 
-void TGANeuroLearn::CalcVectorSize()
+void TGANeuroLearn::LinkParameters()
 {
-    vector_size = Net->CalculateVectorSize();
-    vector = new double *[vector_size];
-
     int vector_index = 0;
+
     // Сохранить адреса смещений в векторе параметров
-    for(int k=1; k<=Net->innerNeurons.size()+1; k++) // Цикл по слоям
-        for(int i=0; i<Net->neuronCount[k]; i++) // - по нейронам текущего слоя
-            vector[vector_index++] = &(Net->w0[k-1][i]);
+    for(size_t k = 1; k <= mNet->innerNeurons.size() + 1; k++) // Цикл по слоям
+        for(int i = 0; i < mNet->neuronCount[k]; i++) // - по нейронам текущего слоя
+            // assign reference to a parameter
+            (*this)[vector_index++] = &(mNet->w0[k-1][i]);
+
     // Сохранить адреса весов в векторе параметров
-    for(int k=1; k<=Net->innerNeurons.size()+1; k++) // Цикл по слоям
-        for(int i=0; i<Net->neuronCount[k]; i++) // - по нейронам текущего слоя
-            for(int j=0; j<Net->neuronCount[k-1]; j++) // - по нейронам предыдущего
-                vector[vector_index++] = &(Net->w[k-1][i][j]);
+    for(size_t k = 1; k <= mNet->innerNeurons.size() + 1; k++) // Цикл по слоям
+        for(int i = 0; i < mNet->neuronCount[k]; i++) // - по нейронам текущего слоя
+            for(int j = 0; j < mNet->neuronCount[k-1]; j++) // - по нейронам предыдущего
+                // assign reference to a parameter
+                (*this)[vector_index++] = &(mNet->w[k-1][i][j]);
 }
 
 void TGANeuroLearn::CalcCromosomeFitness(TChromosome* C)
 {
-    for(int j=0; j<vector_size; j++)
-        *vector[j] = C->geneValue(j);
+    for(size_t j = 0; j < vectorSize(); j++)
+        (*(*this)[j]) = (*C)[j];   // assign value
 
-    double SSE = Net->Test(X, D, PattCount, nullptr);
-    C->Fitness = 1.0 / (1.0 + SSE);
+    double SSE = mNet->PatternSSE(mPattern);
+    C->setFitness(1.0 / (1.0 + SSE));
 }
