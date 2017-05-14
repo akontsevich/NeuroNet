@@ -19,7 +19,7 @@
 #include <vector>
 #include <stdexcept>
 
-#include "tdatasource.h"
+#include "tlearnpattern.h"
 #include "tgeneticalgorithm.h"
 
 using namespace std;
@@ -32,7 +32,7 @@ class TNeuroNet
 
 public:
     ///< Learning function pointer type
-    typedef double (TNeuroNet::* LearningFunction)(TDataSource *);
+    typedef double (TNeuroNet::* LearningFunction)(TLearnPattern &pattern);
 
     enum ActivationFunctionType {
         Logistic,
@@ -54,7 +54,10 @@ public:
     TNeuroNet(const string &fileName) throw(invalid_argument, runtime_error);
     ~TNeuroNet();
 
-    inline double Learning(TDataSource *data) { return (this->*mLearningFunction)(data); }
+    ///< Neuro net learning function
+    inline double Learning(TLearnPattern &pattern) {
+        return (this->*mLearningFunction)(pattern);
+    }
 
     void Save(const string &fileName);  ///< Save neuro net to a file
     void Print(char *filename, int Precission);
@@ -65,10 +68,12 @@ public:
     void SetActFunction(ActivationFunctionType type);
     /// Инициализация значений весов и порогов сети случайными значениями
     void Init(double WMin, double WMax);
-    void Update(double *X); // Расчет выхода сети для входного вектора
-                            // сигналов X
-    /// Neuro net testing
-    double Test(double **X, double **D, int PattCount, double *MaxError = NULL);
+    ///< Calculates neuro net output for input vector X
+    void Update(TLearnPattern::TPatternRow X);
+    ///< Returns SSE for whole learning pattern
+    double PatternSSE(TLearnPattern &pattern, double *MaxError = nullptr);
+    ///< Neuro net testing: returns SSE for test pattern
+    double Test(TLearnPattern &pattern, double *MaxError = nullptr);
     /// Функции возвращающие значения входа и выхода нейросети
     double GetInput(int);
     double GetOutput(int);
@@ -76,16 +81,16 @@ public:
 protected:
     // ------------------------ Learning functions ----------------------------
     /// Back propagation error learing function (gradient method)
-    double StdLearning(TDataSource *data);
+    double StdLearning(TLearnPattern &pattern);
     /// SCG - scaled conjugate gradient learing function
-    double SCGLearning(TDataSource *data);
+    double SCGLearning(TLearnPattern &pattern);
     /// ANN learing function with genetic algorithm
-    double GALearning(TDataSource *data);
+    double GALearning(TLearnPattern &pattern);
 
 private:
     LearningFunction mLearningFunction = &TNeuroNet::StdLearning;
 
-    void construct(const vector<int> &topology);
+    void Construct(const vector<int> &topology);
 
     /// Activation function
     double (TNeuroNet::*fAct)(double x) = &TNeuroNet::fLogistic;
@@ -121,8 +126,13 @@ private:
 
     // SCG helper methods
     void ClearDeltas(void);    // Обнуление ошибки обучения
-    double CalculateGradient(TDataSource *data);
-    double PropagateNetBatchBackward(double *X, double *D);
+    double CalculateGradient(TLearnPattern &pattern);
+    /*!
+     * \brief PropagateNetBatchBackward
+     * \param D desired neuro net output vector
+     * \return Sum Square Error (SSE)
+     */
+    double PropagateNetBatchBackward(TLearnPattern::TPatternRow D);
     double product_of_xt_by_y(double *x, double *y, int array_size);
     double square_of_norm(double *x, int array_size);
     int CalculateVectorSize(void);
@@ -163,7 +173,7 @@ private:
     // Вспомогательные переменные, флаги метода GA
     TGANeuroLearn *ganl;
     bool firstGACycle;
- };
+};
 
 /*!
  * \brief The TGANeuroLearn class
@@ -171,24 +181,24 @@ private:
 class TGANeuroLearn : public TGeneticAlgorithm
 {
 public:
-    TGANeuroLearn(TNeuroNet *Net, // За основу берем сеть, которую
-                                   // необходимо обучить, но для обучения
-                                   // создаем дополнительно популяцию из
-                                   // POPULATION_SIZE хромосом-сетей
-                  double **X,
-                  double **D,
-                  int PattCount);
 
+    /*!
+     * \brief TGANeuroLearn
+     * \param mNet За основу берем сеть, которую необходимо обучить, но для обучения
+     * создаем дополнительно популяцию из POPULATION_SIZE хромосом-сетей
+     * \param pattern Learning pattern (normalized data)
+     */
+    TGANeuroLearn(TNeuroNet *net, TLearnPattern &pattern);
     virtual ~TGANeuroLearn() {}
 
 protected:
-    double **X, **D; // Векторы обучающих шаблонов
-    int PattCount;  // Размер обучающих шаблонов
-
-    virtual void CalcVectorSize();
     virtual void CalcCromosomeFitness(TChromosome*);
+    virtual void InitParameters()   { mNet->Init(); }
+    virtual void LinkParameters();
 
-    TNeuroNet *Net;
+private:
+    TNeuroNet *mNet;
+    TLearnPattern &mPattern;
 };
 
 #endif // TNEURONET_H

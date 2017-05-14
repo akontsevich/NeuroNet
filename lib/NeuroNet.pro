@@ -12,12 +12,14 @@ DEFINES += NEURONET_LIBRARY
 SOURCES += \
     tneuronet.cpp \
     tgeneticalgorithm.cpp \
-    tdatasource.cpp
+    tdatasource.cpp \
+    tlearnpattern.cpp
 
 HEADERS += \
     tneuronet.h \
     tgeneticalgorithm.h \
-    tdatasource.h
+    tdatasource.h \
+    tlearnpattern.h
 
 unix {
     target.path = /usr/lib

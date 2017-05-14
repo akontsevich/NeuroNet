@@ -23,31 +23,32 @@
                                 // популяцию при значении приспособленности
                                 // < AvgFitness
 #define NU_INIT         0.001
-#define BETA            0.0873
+
+#include <vector>
+
+using namespace std;
 
 // Хромосома или особь
 class TChromosome
 {
-friend class TGeneticAlgorithm;
-friend class TGANeuroLearn;
-
 public:
-    TChromosome(int n);
+    TChromosome(size_t size);
     ~TChromosome();
-    double geneValue(int No);
-    void Print();
+    double& operator [](int no) { return data[no]; }
 
-private: // Comment this for debugging ;-)
+    size_t size() { return data.size(); }   ///< Genes count in chromosome
+    void setFitness(double fitness) { mFitness = fitness; }
+    double fitness() { return mFitness; }
 
     void fillVectorData(double *vector);
     void fillVectorData(double **vector);
 
-    double *data;
-    double *al, *si, tau, tau1;
-    int Size;              // Количество ген в хромосоме
-    double Min, Max;         // Начальные мин и макс значения хромосомы
+    void Print();
 
-    double Fitness;              // Приспособленность особи
+private:
+    vector<double> data;
+    double Min, Max;         // Начальные мин и макс значения хромосомы
+    double mFitness;              // Приспособленность особи
 };
 
 /*!
@@ -56,33 +57,54 @@ private: // Comment this for debugging ;-)
 class TGeneticAlgorithm
 {
 public:
-    TGeneticAlgorithm(int vector_size);
+    TGeneticAlgorithm(size_t vector_size);
     virtual ~TGeneticAlgorithm();
 
     // Вызывается из функции обучения ИНС,
     // возвращает приспособленность наиболее приспособленной особи
     double OptimizationCycle(int iteration = -1);
+    ///< Optimized parameters vector size
+    size_t vectorSize()     { return mParameters.size(); }
 
-protected: // Comment this for debugging ;-)
+protected:
+    // Функция рассчета приспособленности особи
+    virtual void CalcCromosomeFitness(TChromosome*) = 0;
+    ///< Initialize optimized parameters
+    /// \note called for each chromosome initialization, should differ for each call
+    virtual void InitParameters() = 0;
+    ///< Link optimized subject field parameters to class parameters
+    virtual void LinkParameters() = 0;
+    double*& operator [](int i) { return mParameters[i]; }
+
+private:
+    void GeneratePopulation(); ///< Population initialization method
+
     inline void Crossover(int cNo1,     // Номера хромосом в списке
                           int cNo2,     // для скрещивания
                           int ChildNo); // Номер потомка
-    void Copy(TChromosome *Dest,        // Копирование хромосомы без изменений
-              TChromosome *Source);
+    ///< Copy chromosome without modifications
+    void Copy(TChromosome *Dest, TChromosome *Source);
 
     // Оператор мутации
-    inline void Mutation(TChromosome *Offspring, TChromosome *Parent);
-    inline void Mutation1(TChromosome *Offspring, TChromosome *Parent);
+    inline void Mutation(TChromosome &Offspring, TChromosome &Parent);
 
     // Оператор селекции - отбор родителей
     inline void Selection(int *p1, int *p2 = 0); // рулетка (Fitness > 0)
 
-    double *GP;
-    inline void RoulettePreparation(); // Рассчет интервалов для рулетки
+    inline void RoulettePreparation(); ///< Calc intervals for "roulette" method
 
-    // Создание новой популяции
-    double NewGeneration1();   // Выбор лучших из всех особей
-    double NewGeneration2();   // Полная смена популяции
+    // New population creation functions
+    ///< Population creation function: Select best from all chromosomes
+    double NewGenerationBest();
+    ///< Population creation function: Full Generation Substitution
+    double NewGenerationFullSubstitution();
+
+    inline void QSort(TChromosome **array, int First, int Last);
+
+    // Генератор случайных чисел распределения Коши
+    double cauchy_gen();
+    // Генератор появления события с вероятностью P
+    bool random_event_gen(double P);
 
     double AvgFitness;           // Средняя приспособленность популяции
 
@@ -90,19 +112,12 @@ protected: // Comment this for debugging ;-)
     TChromosome **Offsprings;   // Хромосомы-потомки
     TChromosome **AllPopulation;// Вся популяция (для механизма селекции)
 
-    inline void QSort(TChromosome **array, int First, int Last);
-
-    // Функция получения размера оптимизируемого вектора (индивидуальная для
-    // каждого типа решаемых задач)
-    virtual void CalcVectorSize() {}
-    // Функция рассчета приспособленности особи
-    virtual void CalcCromosomeFitness(TChromosome*) {}
-
-    double **vector;             // Вектор параметров, значения которых
-                                // необходимо оптимизировать
-    int vector_size;            // Размер вектора
+    double *GP;             ///< Intervals for "roulette" selection method
+    vector<double *>mParameters;    ///< Parameters vector to be optimized
     int ChildAvgCountSum;
     double nu4all;
+
+    bool mPopulationInitialized = false;
 };
 
 #endif // TGENETICALGORITHM_H

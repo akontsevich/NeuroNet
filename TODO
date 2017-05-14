@@ -1,6 +1,5 @@
-TODO: 
+﻿TODO: 
 - TDataSource childs: TCSVSource, TPgSource
-- operator [][] for TDataSource (via TDataRow abstract class)
-- Add data normalization to TDataSource
+- Add data normalization to TLearnPattern class
 - TNeuroFunction
 - Boost loop parallelization

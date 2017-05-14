@@ -16,51 +16,72 @@
 #define TDATASOURCE_H
 
 #include <string>
-#include <vector>
+#include <unordered_map>
 #include <stdexcept>
 
 using namespace std;
 
+/*!
+ * \brief The TDataSource abstract class containing data set for neuro net learning
+ */
 class TDataSource
 {
 public:
-    typedef int (TDataSource::* IndexFunction)(int);
-
     TDataSource() {}
 
-    virtual double data(int row, int col) final;
-    virtual double data(int row, string colName) final;
+    class TDataRow  ///< Proxy class to implement operator[][]
+    {
+    public:
+        TDataRow(TDataSource& source, int row) : ds(source), i(row) {}
+        double operator[](int j)       { return ds.data(i, j);    }
+        double operator[](string name) { return ds.data(i, name); }
 
-    ///< Neuro net input (normalized values)
-    virtual double in(int row, int col) final;
-    ///< Neuro net desired output (normalized values)
-    virtual double out(int row, int col) final;
+    private:
+        TDataSource& ds;
+        int i;
+    };
+
+    TDataRow operator [](int i)
+    {
+        return TDataRow(*this, i);
+    }
 
     virtual int rowCount() = 0;     ///< Data source row count
     virtual int colCount() = 0;     ///< Data source column count
 
-    virtual int min(int col) = 0;   /// < Min column value by column index
-    virtual int max(int col) = 0;   /// < Max column value by column index
-    virtual int min(string colName) = 0;  /// < Min column value by column name
-    virtual int max(string colName) = 0;  /// < Max column value by column name
+    /// < Min column value by column index
+    virtual int min(int col) throw(out_of_range) final;
+    /// < Max column value by column index
+    virtual int max(int col) throw(out_of_range) final;
+    /// < Min column value by column name
+    virtual int min(string colName) throw(invalid_argument) final;
+    /// < Min column value by column name
+    virtual int max(string colName) throw(invalid_argument) final;
 
-    void setInOut(vector<int> &inCols, vector<int> &outCols) throw(invalid_argument);
-
-    void shuffle(bool mix = true);  ///< Randomly shuffle data set
+    /*!
+     * \brief columnName gets column name by its number
+     * \param col column number
+     * \return column name or empty string if not exist
+     */
+    virtual string columnName(int col) throw() = 0 ;
+    /*!
+     * \brief columnIndex gets column number by its name
+     * \param name column name
+     * \return column number or -1 if not exist
+     */
+    virtual int columnIndex(string name) throw() = 0;
 
 protected:
-    virtual double internalData(int row, int col) = 0;
-    virtual double internalData(int row, string colName) = 0;
+    virtual double data(int row, int col) = 0;
+    virtual double data(int row, string colName) = 0;
 
 private:
-    int sequentIndex(int idx)   { return idx; }
-    int shuffledIndex(int idx)  { return mIndexArray[idx]; }
+    void calcColumnMinMax(int col);
+    bool columnInRange(int col) { return (0 <= col && col < colCount()); }
+    bool rowInRange(int row)    { return (0 <= row && row < rowCount()); }
 
-    vector<int> mInIndexes, mOutIndexes;
-
-    IndexFunction mIndexFunc = &TDataSource::sequentIndex;
-    bool mShuffled = false;
-    vector<int> mIndexArray;
+    unordered_map<int, double> minByColIdx, maxByColIdx;
+    unordered_map<string, double> minByColName, maxByColName;
 };
 
 #endif // TDATASOURCE_H
