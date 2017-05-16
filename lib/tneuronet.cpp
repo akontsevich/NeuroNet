@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <values.h>
 
+#include "tlearnpattern.h"
 #include "tneuronet.h"
 
 TNeuroNet::TNeuroNet(const vector<int> &topology) throw(invalid_argument)
@@ -207,6 +208,7 @@ void TNeuroNet::SetActFunction(ActivationFunctionType type)
     switch (actFuncType) {
     default:
     case Logistic:
+        actFuncType = Logistic;
         fAct = &TNeuroNet::fLogistic;
         df = &TNeuroNet::dfLogistic;
         break;
@@ -247,7 +249,7 @@ void TNeuroNet::Init()
     netInitialized = true;
 }
 
-void TNeuroNet::Update(TLearnPattern::TPatternRow X)
+template<typename T> void TNeuroNet::Update(T X)
 {
     // Расчет выходных сигналов первого (входного) слоя
     for(int i = 0; i < neuronCount[0]; i++)
@@ -270,7 +272,7 @@ double TNeuroNet::StdLearning(TLearnPattern &pattern)
 {
     register double SSE = 0.0, deviation, error;
 
-    for(int m = 0; m < pattern.rowCount(); m++)
+    for(size_t m = 0; m < pattern.rowCount(); m++)
     {
         int index = m;
         // Расчет выхода сети (Forward Propagation)
@@ -326,7 +328,7 @@ double TNeuroNet::Test(TLearnPattern &pattern, double *MaxError)
     bool CalcMaxError = MaxError != nullptr;
     if(CalcMaxError)
         *MaxError = 0.0;
-    for(int m = 0; m < pattern.testCount(); m++)
+    for(size_t m = 0; m < pattern.testCount(); m++)
     {
         Update(pattern.TestIn(m));
         // Вычисление суммарной квадратичной ошибки (Sum Squared Error)
@@ -352,7 +354,7 @@ double TNeuroNet::PatternSSE(TLearnPattern &pattern, double *MaxError)
     bool CalcMaxError = MaxError != nullptr;
     if(CalcMaxError)
         *MaxError = 0.0;
-    for(int m = 0; m < pattern.rowCount(); m++)
+    for(size_t m = 0; m < pattern.rowCount(); m++)
     {
         Update(pattern[m]);
         // Вычисление суммарной квадратичной ошибки (Sum Squared Error)
@@ -372,11 +374,11 @@ double TNeuroNet::PatternSSE(TLearnPattern &pattern, double *MaxError)
     return(SSE);
 }
 
-void TNeuroNet::Print(char *filename, int /*Precission*/)
+void TNeuroNet::Print(const string &fileName, int /*Precission*/)
 {
-    FILE *f = fopen(filename, "w");
+    FILE *f = fopen(fileName.c_str(), "w");
     double MinW = 0.0, MaxW = 0.0,
-            MinW0 = 0.0, MaxW0 = 0.0;
+           MinW0 = 0.0, MaxW0 = 0.0;
     for(size_t k = 1; k < innerNeurons.size()+1; k++) // Цикл по слоям
     {
         // Печать выходов нейронов
@@ -671,7 +673,7 @@ double TNeuroNet::CalculateGradient(TLearnPattern &pattern)
     ClearDeltas();  // Очистка параметра, описывающего ошибку сети, для
                     // последующего запуска функции обратного распространения
 
-    for(int m = 0; m < pattern.rowCount(); m++)
+    for(size_t m = 0; m < pattern.rowCount(); m++)
     {
         int index = m;
         // Расчет выхода сети (Forward Propagation)
@@ -684,7 +686,7 @@ double TNeuroNet::CalculateGradient(TLearnPattern &pattern)
     return(SSE);
 }
 
-double TNeuroNet::PropagateNetBatchBackward(TLearnPattern::TPatternRow D)
+template<typename T> double TNeuroNet::PropagateNetBatchBackward(T D)
 {
     register double SSE = 0.0, deviation, error;
 
@@ -732,16 +734,6 @@ int TNeuroNet::CalculateVectorSize()
         vector_size += neuronCount[k]*(neuronCount[k-1] + 1);
 
     return(vector_size);
-}
-
-double TNeuroNet::GetInput(int i)
-{
-    return(in[i]);
-}
-
-double TNeuroNet::GetOutput(int i)
-{
-    return(out[i]);
 }
 
 double TNeuroNet::GALearning(TLearnPattern &pattern)

@@ -1,5 +1,7 @@
 ﻿TODO: 
 - TDataSource childs: TCSVSource, TPgSource
-- Add data normalization to TLearnPattern class
+- TPrognosLearnPattern class - child of TLearnPattern
+- TCachedLearnPattern class (child of TLearnPattern) - caches normalized data into 2-dim array
+- TGANeuroLearn child with SCG-learned neuro nets initialization instead of random initialization
 - TNeuroFunction
 - Boost loop parallelization

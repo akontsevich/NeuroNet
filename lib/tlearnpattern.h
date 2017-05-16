@@ -16,7 +16,10 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <stdexcept>
+
+#include "tneuronet.h"
 
 using namespace std;
 
@@ -29,7 +32,15 @@ class TLearnPattern
 {
 public:
     typedef int (TLearnPattern::* IndexFunction)(int);
+    typedef double (TLearnPattern::* NormalizationFunction)(double X, int col, MinMax norm);
     typedef double (TLearnPattern::* DataFunction)(int, int);
+
+    enum NormalizationType
+    {
+        Simple,
+        Sigmoid,
+        Logarithm
+    };
 
     TLearnPattern() {}
     TLearnPattern(TDataSource *source);
@@ -37,10 +48,10 @@ public:
     class TPatternRow  ///< Proxy class to implement operator[][]
     {
     public:
-        TPatternRow(TLearnPattern& source, int row, DataFunction func) :
-            i(row),
-            lp(source),
-            data(func)
+        TPatternRow(TLearnPattern& source, int row, DataFunction func)
+            : i(row)
+            , lp(source)
+            , data(func)
         {}
         double operator[](int j) { return (lp.*data)(i, j); }
 
@@ -50,24 +61,27 @@ public:
         DataFunction data = &TLearnPattern::in;
     };
 
-    TPatternRow operator [](int i) { return TPatternRow(*this, i, &TLearnPattern::in); }
-    TPatternRow In(int i)  { return TPatternRow(*this, i, &TLearnPattern::in); }
-    TPatternRow Out(int i) { return TPatternRow(*this, i, &TLearnPattern::out); }
-    TPatternRow TestIn(int i)  { return TPatternRow(*this, i, &TLearnPattern::testIn); }
-    TPatternRow TestOut(int i) { return TPatternRow(*this, i, &TLearnPattern::testOut); }
+    TPatternRow operator [](int row) { return TPatternRow(*this, row, &TLearnPattern::in); }
+    TPatternRow In(int row)  { return TPatternRow(*this, row, &TLearnPattern::in); }
+    TPatternRow Out(int row) { return TPatternRow(*this, row, &TLearnPattern::out); }
+    TPatternRow TestIn(int row)  { return TPatternRow(*this, row, &TLearnPattern::testIn); }
+    TPatternRow TestOut(int row) { return TPatternRow(*this, row, &TLearnPattern::testOut); }
 
     ///< Neuro net input (normalized values)
-    virtual double in(int row, int col) final;
+    virtual double in(int row, int col);
     ///< Neuro net desired output (normalized values)
-    virtual double out(int row, int col) final;
+    virtual double out(int row, int col);
 
     ///< Neuro net input (normalized values)
-    virtual double testIn(int row, int col) final;
+    virtual double testIn(int row, int col);
     ///< Neuro net desired output (normalized values)
-    virtual double testOut(int row, int col) final;
+    virtual double testOut(int row, int col);
 
-    virtual int rowCount();     ///< Learn pattern row count
-    virtual int testCount();    ///< Test pattern row count
+    virtual size_t rowCount();     ///< Learn pattern row count
+    virtual size_t testCount();    ///< Test pattern row count
+
+    size_t inCount()   { return mInIndexes.size(); }
+    size_t outCount()  { return mOutIndexes.size(); }
 
     /*!
      * \brief mapInOut method maps neuro net input data coumns and
@@ -75,34 +89,63 @@ public:
      * \param inCols input columns numbers
      * \param outCols output columns numbers
      */
-    void mapInOut(vector<int> &inCols, vector<int> &outCols) throw(invalid_argument);
+    void mapInOut(vector<int> &inCols, vector<int> &outCols) throw(out_of_range);
+    void mapNormalizationRanges(TNeuroNet *net);
+
     /*!
      * \brief setTestData define test data set
      * \param Nth set every N-th element as test data
      */
-    void setTestData(int Nth);
+    void setTestData(uint Nth);
     /*!
      * \brief setTestData define test data set
      * \param testData set external data source as test data
+     * \throw invalid_argument if test data does not match source
      */
-    void setTestData(TDataSource *testData);
+    void setTestData(TDataSource *testData) throw(invalid_argument);
+
+    /*!
+     * \brief setNormalizationType sets data normalization function type
+     * \param type mormalization type
+     */
+    void setNormalizationType(NormalizationType type);
+    double RestoreInValue(double nValue, int col);
+    double RestoreOutValue(double nValue, int col);
 
     void shuffle(bool mix = true);  ///< Randomly shuffle data set
 
 private:
+    ///< Simple data normalization
+    double SimpleNormalization(double X, int ColNumber, MinMax norm);
+    ///< Sigmoid data normalization
+    double SigmoidNormalization(double X, int, MinMax norm);
+    ///< Logarithmic data normalization
+    double LogarithmicNormalization(double X, int ColNumber, MinMax norm);
+
+    double RestoreValue(double nValue, int col, MinMax norm);
+
     int fullIndex(int idx)      { return idx; }
     int partIndex(int idx)      { return mPartIndex[idx]; }
     int testIndex(int idx)      { return mTestIndex[idx]; }
     int shuffledIndex(int idx)  { return mShuffledIndex[(this->*mSequentIndexRowFunc)(idx)]; }
 
-    void clearIndexes();    ///< Clears row indexes vectors
+    void clearRowIndexes();    ///< Clears row indexes vectors
+    void clearColIndexes();    ///< Clears column indexes vectors
 
     vector<int> mInIndexes, mOutIndexes;
+    // Columns min/max values
+    vector<double> mMin, mMax;
+    // Normalized min/max values for neuro net input/output
+    MinMax mNetInMinMax, mNetOutMinMax;
+    NormalizationType normalizationType = Simple;
+    NormalizationFunction normalizationFunc = &TLearnPattern::SimpleNormalization;
 
-                  ///< Could be fullIndex or shuffledIndex only
+                  ///< Could be fullIndex() or shuffledIndex() only
     IndexFunction mRowIndexFunc = &TLearnPattern::fullIndex,
-                  ///< Could be fullIndex or partIndex only
-                  mSequentIndexRowFunc = &TLearnPattern::fullIndex;
+                  ///< Could be fullIndex() or partIndex() only
+                  mSequentIndexRowFunc = &TLearnPattern::fullIndex,
+                  ///< Could be fullIndex() or testIndex()
+                  mTestIndexFunc = &TLearnPattern::fullIndex;
 
     bool mShuffled = false;
     vector<int> mShuffledIndex,

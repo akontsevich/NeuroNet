@@ -46,8 +46,8 @@ public:
         return TDataRow(*this, i);
     }
 
-    virtual int rowCount() = 0;     ///< Data source row count
-    virtual int colCount() = 0;     ///< Data source column count
+    virtual size_t rowCount() = 0;     ///< Data source row count
+    virtual size_t colCount() = 0;     ///< Data source column count
 
     /// < Min column value by column index
     virtual int min(int col) throw(out_of_range) final;
@@ -76,9 +76,9 @@ protected:
     virtual double data(int row, string colName) = 0;
 
 private:
-    void calcColumnMinMax(int col);
-    bool columnInRange(int col) { return (0 <= col && col < colCount()); }
-    bool rowInRange(int row)    { return (0 <= row && row < rowCount()); }
+    void calcColumnMinMax(uint col);
+    bool columnInRange(uint col) { return (/*0 <= col && */col < colCount()); }
+    bool rowInRange(uint row)    { return (/*0 <= row && */row < rowCount()); }
 
     unordered_map<int, double> minByColIdx, maxByColIdx;
     unordered_map<string, double> minByColName, maxByColName;

@@ -56,12 +56,12 @@ int TDataSource::max(string colName) throw(invalid_argument)
     return maxByColName[colName];
 }
 
-void TDataSource::calcColumnMinMax(int col)
+void TDataSource::calcColumnMinMax(uint col)
 {
     if(rowCount() <= 0) return;
 
     double min = data(0, col), max = data(0, col);
-    for(int i = 1; i < rowCount(); i++)
+    for(size_t i = 1; i < rowCount(); i++)
     {
         if(min > data(i, col)) min = data(i, col);
         if(max < data(i, col)) max = data(i, col);

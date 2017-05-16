@@ -19,12 +19,23 @@
 #include <vector>
 #include <stdexcept>
 
-#include "tlearnpattern.h"
 #include "tgeneticalgorithm.h"
 
 using namespace std;
 
+class TLearnPattern;
 class TGANeuroLearn;
+
+///< first - Min, second - Max
+struct MinMax : public pair<double, double>
+{
+    using pair<double, double>::pair;
+
+    double& Min() { return first; }
+    double Min() const { return first; }
+    double& Max() { return second; }
+    double Max() const { return second; }
+};
 
 class TNeuroNet
 {
@@ -37,7 +48,9 @@ public:
     enum ActivationFunctionType {
         Logistic,
         HyperbolicTangent,
-        Exponential
+        Exponential,
+        // -----------
+        FunctionCount
     };
 
     /*!
@@ -60,7 +73,7 @@ public:
     }
 
     void Save(const string &fileName);  ///< Save neuro net to a file
-    void Print(char *filename, int Precission);
+    void Print(const string &fileName, int Precission);
 
     /// Установить параметры обучения
     void SetLearningParameters(double nu, double delta_max);
@@ -68,15 +81,24 @@ public:
     void SetActFunction(ActivationFunctionType type);
     /// Инициализация значений весов и порогов сети случайными значениями
     void Init(double WMin, double WMax);
-    ///< Calculates neuro net output for input vector X
-    void Update(TLearnPattern::TPatternRow X);
+    /*!
+     *  \brief Calculates neuro net output for input vector X
+     *  \param X vector accessible by operator[] (i.e double*, TPatternRow,
+     * vector<double>, etc)
+     */
+    template<typename T> void Update(T X);
     ///< Returns SSE for whole learning pattern
     double PatternSSE(TLearnPattern &pattern, double *MaxError = nullptr);
     ///< Neuro net testing: returns SSE for test pattern
     double Test(TLearnPattern &pattern, double *MaxError = nullptr);
     /// Функции возвращающие значения входа и выхода нейросети
-    double GetInput(int);
-    double GetOutput(int);
+    double Input(int i)  { return in[i]; }  ///< Neuro net input
+    double Output(int i) { return out[i]; } ///< Neuro net output
+    double operator[](int i) { return out[i]; } ///< Neuro net output
+
+    const MinMax inMinMax() { return mInMinMax[actFuncType]; }
+    const MinMax outMinMax() { return { (this->*fAct)(mInMinMax[actFuncType].Min()),
+                                        (this->*fAct)(mInMinMax[actFuncType].Max()) }; }
 
 protected:
     // ------------------------ Learning functions ----------------------------
@@ -108,7 +130,7 @@ private:
     /// Hyperbolic tangent activation function
     double fTanh(double x) { return tanh(x); }
     /// Exponential activation function
-    double fExp(double x) { return exp(-0.5*x*x); }
+    double fExp(double x) { return exp(-0.5 * x*x); }
 
     // Individual derivatives of activation functions
     /// Logistic activation function
@@ -132,7 +154,7 @@ private:
      * \param D desired neuro net output vector
      * \return Sum Square Error (SSE)
      */
-    double PropagateNetBatchBackward(TLearnPattern::TPatternRow D);
+    template<typename T> double PropagateNetBatchBackward(T D);
     double product_of_xt_by_y(double *x, double *y, int array_size);
     double square_of_norm(double *x, int array_size);
     int CalculateVectorSize(void);
@@ -160,6 +182,9 @@ private:
            wMax;          // весов и смещений
 
     ActivationFunctionType actFuncType;  // Activation function type
+    // Min/max values for input/output learning data normalization depends on
+    // activation function: should be taken into account for good ANN approximation
+    const MinMax mInMinMax[FunctionCount] = {{-1, 1}, {-1, 1}, {0, 1}};
 
     // Learning parameters
     double nu,           // Скорость обучения (learning rate)
