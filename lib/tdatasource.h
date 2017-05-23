@@ -16,6 +16,7 @@
 #define TDATASOURCE_H
 
 #include <string>
+#include  <vector>
 #include <unordered_map>
 #include <stdexcept>
 
@@ -63,7 +64,8 @@ public:
      * \param col column number
      * \return column name or empty string if not exist
      */
-    virtual string columnName(int col) throw() = 0 ;
+    virtual string columnName(int col) throw() = 0;
+    virtual const vector<string>& columnNames() const throw() = 0;
     /*!
      * \brief columnIndex gets column number by its name
      * \param name column name

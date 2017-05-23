@@ -13,15 +13,20 @@ SOURCES += \
     tneuronet.cpp \
     tgeneticalgorithm.cpp \
     tdatasource.cpp \
-    tlearnpattern.cpp
+    tlearnpattern.cpp \
+    tcsvsource.cpp \
+    tpgsource.cpp
 
 HEADERS += \
     tneuronet.h \
     tgeneticalgorithm.h \
     tdatasource.h \
-    tlearnpattern.h
+    tlearnpattern.h \
+    tcsvsource.h \
+    tpgsource.h
 
 unix {
     target.path = /usr/lib
     INSTALLS += target
+    LIBS += -lpqxx
 }
